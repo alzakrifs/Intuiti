@@ -16,7 +16,11 @@ class CardExtractor(context: Context) {
             .getOrElse { error ->
                 Log.w(TAG, "Claude extraction failed; falling back to ML Kit", error)
                 val fallback = mlKit.extract(imageUri)
-                fallback.copy(source = ExtractionSource.MlKitFallback)
+                fallback.copy(
+                    source = ExtractionSource.MlKitFallback,
+                    errorMessage = error.message?.takeIf { it.isNotBlank() }
+                        ?: error.javaClass.simpleName,
+                )
             }
     }
 

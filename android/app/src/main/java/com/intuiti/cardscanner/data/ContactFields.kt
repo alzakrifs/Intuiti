@@ -28,4 +28,5 @@ data class ExtractionResult(
     val fields: ContactFields,
     val rawText: String,
     val source: ExtractionSource,
+    val errorMessage: String? = null,
 )

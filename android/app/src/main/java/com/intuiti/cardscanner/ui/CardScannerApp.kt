@@ -382,6 +382,10 @@ private fun ReviewScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
+            if (state.source == ExtractionSource.MlKitFallback && !state.errorMessage.isNullOrBlank()) {
+                FallbackErrorBanner(message = state.errorMessage)
+            }
+
             ContactFieldsForm(state.fields, onUpdate)
 
             Spacer(Modifier.height(8.dp))
@@ -492,6 +496,30 @@ private fun sourceLabel(source: ExtractionSource): String = when (source) {
     ExtractionSource.Claude -> stringRes(R.string.status_done_ai)
     ExtractionSource.MlKit -> stringRes(R.string.status_done_ocr)
     ExtractionSource.MlKitFallback -> stringRes(R.string.status_done_fallback)
+}
+
+@Composable
+private fun FallbackErrorBanner(message: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        ),
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = "AI extraction failed",
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
+    }
 }
 
 // ----- Error ----------------------------------------------------------------

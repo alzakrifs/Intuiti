@@ -26,6 +26,7 @@ sealed interface ScanPhase {
         val imageUri: Uri,
         val fields: ContactFields,
         val source: ExtractionSource,
+        val errorMessage: String? = null,
     ) : ScanPhase
     data class Error(val message: String) : ScanPhase
 }
@@ -64,6 +65,7 @@ class ScannerViewModel(
                     imageUri = uri,
                     fields = result.fields,
                     source = result.source,
+                    errorMessage = result.errorMessage,
                 )
             } catch (t: Throwable) {
                 _phase.value = ScanPhase.Error(t.message ?: "Could not read the card.")
@@ -94,16 +96,19 @@ class ScannerViewModel(
             _settingsState.update { it.copy(message = "Enter a key first.", isError = true) }
             return
         }
-        if (!trimmed.startsWith("sk-ant-")) {
-            _settingsState.update {
-                it.copy(message = "That does not look like an Anthropic key.", isError = true)
-            }
-            return
-        }
         viewModelScope.launch {
             settings.setApiKey(trimmed)
+            val warning = if (!trimmed.startsWith("sk-ant-")) {
+                " Heads-up: most Anthropic keys start with sk-ant-."
+            } else {
+                ""
+            }
             _settingsState.update {
-                it.copy(apiKey = trimmed, message = "Saved. AI mode is on.", isError = false)
+                it.copy(
+                    apiKey = trimmed,
+                    message = "Saved. AI mode is on.$warning",
+                    isError = false,
+                )
             }
         }
     }
