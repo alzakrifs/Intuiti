@@ -27,22 +27,40 @@ Built on the modern Android playbook:
 If the AI call fails (bad key, rate limit, network), the app automatically
 falls back to ML Kit for that scan and labels the result as a fallback.
 
-## Build & run
+## Install on your phone
 
-This is a standard Gradle project. The fastest way to bootstrap:
+Every push to this branch triggers a CI build that publishes a rolling
+**Latest debug build** prerelease with the APK attached.
+
+1. On your phone's browser, open the repo's
+   [Releases page](../../releases).
+2. Tap the `latest-debug` release → tap `app-debug.apk`.
+3. The first time, Android will ask you to allow your browser to install
+   unknown apps — toggle it on, then tap **Install**.
+4. Future pushes refresh the same release; pull-to-refresh and reinstall to
+   update.
+
+> **Why "debug"?** The APK is signed with the auto-generated Android debug
+> keystore. Fine for personal use; Play Protect may show a one-time "unverified
+> developer" prompt. To ship a release-signed APK, set up a signing config and
+> tag the commit `vX.Y.Z` — the same workflow then attaches the APK to a real
+> tagged release (see `.github/workflows/android.yml`).
+
+## Build locally
+
+Standard Gradle project. The fastest way to bootstrap:
 
 1. Open the `android/` folder in **Android Studio** (Hedgehog or newer). It
-   regenerates the `gradlew` wrapper script + jar on first sync.
+   syncs and downloads the SDK packages it needs.
 2. Connect a physical device (API 26 / Android 8.0+) or start an emulator.
 3. Run the **app** configuration.
 
-Or from a shell with Gradle 8.10+ installed:
+Or from a shell with the Android SDK installed (`ANDROID_HOME` set):
 
 ```bash
 cd android
-gradle wrapper        # one-time, generates ./gradlew + gradle-wrapper.jar
-./gradlew :app:assembleDebug
-./gradlew :app:installDebug
+./gradlew :app:assembleDebug      # → app/build/outputs/apk/debug/app-debug.apk
+./gradlew :app:installDebug       # push to a connected device
 ```
 
 ## Adding an API key
