@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Card Scanner</string>
+    <string name="tagline">Snap a business card, save the contact.</string>
+
+    <string name="capture_take_photo">Take a photo</string>
+    <string name="capture_pick_from_gallery">Choose from gallery</string>
+    <string name="capture_hint">Tap to open camera</string>
+
+    <string name="mode_ai">Mode: AI (Claude)</string>
+    <string name="mode_ocr">Mode: on-device OCR</string>
+
+    <string name="settings_title">AI settings</string>
+    <string name="settings_description">Add an Anthropic API key for AI-powered extraction. With a key the app uses Claude to read the card. Without a key it uses Google ML Kit on-device OCR.</string>
+    <string name="settings_key_label">Anthropic API key</string>
+    <string name="settings_key_hint">sk-ant-…</string>
+    <string name="settings_save">Save key</string>
+    <string name="settings_clear">Clear key</string>
+    <string name="settings_open_console">Get a key at console.anthropic.com</string>
+    <string name="settings_storage_note">Stored only on this device.</string>
+
+    <string name="review_title">Review contact</string>
+    <string name="review_subtitle">Edit anything that looks wrong, then save.</string>
+    <string name="field_first_name">First name</string>
+    <string name="field_last_name">Last name</string>
+    <string name="field_title">Job title</string>
+    <string name="field_org">Company</string>
+    <string name="field_phone">Phone</string>
+    <string name="field_mobile">Mobile</string>
+    <string name="field_email">Email</string>
+    <string name="field_website">Website</string>
+    <string name="field_address">Address</string>
+    <string name="field_notes">Notes</string>
+
+    <string name="action_save">Save to contacts</string>
+    <string name="action_scan_another">Scan another</string>
+    <string name="action_retake">Retake</string>
+
+    <string name="status_preparing">Preparing image…</string>
+    <string name="status_running_ocr">Reading text on device…</string>
+    <string name="status_running_ai">Asking Claude to read the card…</string>
+    <string name="status_done_ai">Done (AI extraction). Review below.</string>
+    <string name="status_done_ocr">Done (on-device OCR). Review below.</string>
+    <string name="status_done_fallback">Done (on-device fallback). Review below.</string>
+
+    <string name="error_no_text">Could not find text on the card. Try better lighting.</string>
+    <string name="error_invalid_key">That does not look like an Anthropic key (expected sk-ant-…).</string>
+    <string name="error_no_camera_permission">Camera permission is required to scan cards.</string>
+    <string name="error_save_failed">Could not open contacts. Save the details manually.</string>
+
+    <string name="cd_preview">Captured business card</string>
+    <string name="cd_more_options">More options</string>
+    <string name="cd_close">Close</string>
+</resources>

@@ -1,16 +1,31 @@
 # Intuiti — Card Scanner
 
-A mobile web app that lets you snap a photo of a business card, extract the
-contact information, and save it as a `.vcf` (vCard) file that your phone can
-import natively.
+Snap a business card, extract the contact info, save it.
 
-Two extraction modes:
+This repo contains **two implementations** of the same app:
 
-- **AI mode (recommended).** With an Anthropic API key, the app sends the image
-  to Claude (`claude-opus-4-7`) and gets back a structured JSON response.
-  Significantly more accurate on stylized fonts, logos, and color backgrounds.
-- **On-device OCR.** Without a key, the app falls back to Tesseract.js running
-  fully in the browser. No images leave the phone.
+| Variant | Path        | Tech                                                        |
+|---------|-------------|-------------------------------------------------------------|
+| Android | [`android/`](./android/) | Kotlin · Jetpack Compose · Material 3 · ML Kit · Claude API |
+| Web     | repo root   | Static HTML/CSS/JS · Tesseract.js · Claude API              |
+
+Both share the same two extraction modes:
+
+- **AI mode (recommended).** With an Anthropic API key, the image is sent to
+  Claude (`claude-opus-4-7`) with a JSON-schema response format. Significantly
+  more accurate on stylized fonts, logos, and color backgrounds.
+- **On-device.** Without a key, extraction runs locally — Google ML Kit on
+  Android, Tesseract.js in the browser. No images leave the phone.
+
+> **Recommended:** the Android variant. Native camera, better OCR, contacts
+> hand-off via the system editor, edge-to-edge Material 3 UI. See
+> [`android/README.md`](./android/README.md) for build instructions.
+
+The web variant remains as a serverless / install-free option — see below.
+
+---
+
+## Web variant
 
 ## Features
 
