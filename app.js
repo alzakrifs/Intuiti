@@ -1,6 +1,11 @@
 (function () {
   'use strict';
 
+  const API_KEY_STORAGE = 'intuiti.anthropicApiKey';
+  const CLAUDE_MODEL = 'claude-opus-4-7';
+  const CLAUDE_API_URL = 'https://api.anthropic.com/v1/messages';
+  const MAX_IMAGE_DIM = 1568;
+
   const captureSection = document.getElementById('capture-section');
   const previewSection = document.getElementById('preview-section');
   const formSection = document.getElementById('form-section');
@@ -13,6 +18,12 @@
   const retakeButton = document.getElementById('retake-button');
   const resetButton = document.getElementById('reset-button');
   const form = document.getElementById('contact-form');
+  const apiKeyInput = document.getElementById('api-key-input');
+  const saveKeyButton = document.getElementById('save-key-button');
+  const clearKeyButton = document.getElementById('clear-key-button');
+  const keyStatus = document.getElementById('key-status');
+  const modeIndicator = document.getElementById('mode-indicator');
+  const footerPrivacy = document.getElementById('footer-privacy');
 
   cardInput.addEventListener('change', handleFileSelected);
   libraryInput.addEventListener('change', handleFileSelected);
@@ -20,6 +31,10 @@
   retakeButton.addEventListener('click', resetApp);
   resetButton.addEventListener('click', resetApp);
   form.addEventListener('submit', handleSave);
+  saveKeyButton.addEventListener('click', handleSaveKey);
+  clearKeyButton.addEventListener('click', handleClearKey);
+
+  initSettings();
 
   function setVisible(section, visible) {
     section.classList.toggle('hidden', !visible);
@@ -51,15 +66,247 @@
     status.textContent = 'Preparing image...';
     progress.value = 0;
 
+    const apiKey = getApiKey();
+
     try {
-      const text = await runOCR(file);
-      const fields = parseCardText(text);
-      populateForm(fields, text);
+      let result;
+      if (apiKey) {
+        try {
+          result = await extractWithClaude(file, apiKey);
+        } catch (claudeErr) {
+          console.error('Claude extraction failed, falling back to OCR:', claudeErr);
+          status.textContent = 'AI extraction failed (' + claudeErr.message + '). Using on-device OCR...';
+          result = await extractWithTesseract(file);
+          result.source = 'tesseract-fallback';
+        }
+      } else {
+        result = await extractWithTesseract(file);
+      }
+      populateForm(result.fields, result.rawText);
       setVisible(formSection, true);
-      status.textContent = 'Done. Review the details below.';
+      status.textContent = sourceMessage(result.source);
     } catch (err) {
       console.error(err);
       status.textContent = 'Could not read the card. Try again with better lighting.';
+    }
+  }
+
+  function sourceMessage(source) {
+    switch (source) {
+      case 'claude':
+        return 'Done (AI extraction). Review the details below.';
+      case 'tesseract-fallback':
+        return 'Done (on-device fallback). Review the details below.';
+      default:
+        return 'Done. Review the details below.';
+    }
+  }
+
+  async function extractWithTesseract(file) {
+    const text = await runOCR(file);
+    const fields = parseCardText(text);
+    return { fields, rawText: text, source: 'tesseract' };
+  }
+
+  async function extractWithClaude(file, apiKey) {
+    status.textContent = 'Resizing image...';
+    progress.value = 0.1;
+    const { base64, mediaType } = await prepareImageForClaude(file);
+
+    status.textContent = 'Asking Claude to read the card...';
+    progress.value = 0.4;
+
+    const body = {
+      model: CLAUDE_MODEL,
+      max_tokens: 1024,
+      system:
+        'You extract structured contact information from photos of business cards. ' +
+        'Return only fields visible on the card. Use empty strings for missing fields. ' +
+        'Preserve phone numbers in their original format. ' +
+        'For "phone", use the main work/office number. For "mobile", use the cell/mobile number if labeled separately. ' +
+        'Combine multi-line addresses into one comma-separated string.',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+            { type: 'text', text: 'Extract the contact information from this business card.' },
+          ],
+        },
+      ],
+      output_config: {
+        format: {
+          type: 'json_schema',
+          schema: {
+            type: 'object',
+            properties: {
+              firstName: { type: 'string' },
+              lastName: { type: 'string' },
+              title: { type: 'string' },
+              org: { type: 'string' },
+              phone: { type: 'string' },
+              mobile: { type: 'string' },
+              email: { type: 'string' },
+              website: { type: 'string' },
+              address: { type: 'string' },
+            },
+            required: [
+              'firstName', 'lastName', 'title', 'org',
+              'phone', 'mobile', 'email', 'website', 'address',
+            ],
+            additionalProperties: false,
+          },
+        },
+      },
+    };
+
+    const response = await fetch(CLAUDE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(body),
+    });
+
+    progress.value = 0.85;
+
+    if (!response.ok) {
+      let detail = '';
+      try {
+        const errBody = await response.json();
+        detail = (errBody && errBody.error && errBody.error.message) || '';
+      } catch (_) { /* ignore */ }
+      throw new Error('HTTP ' + response.status + (detail ? ': ' + detail : ''));
+    }
+
+    const data = await response.json();
+    const text = (data.content || [])
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('')
+      .trim();
+
+    if (!text) {
+      throw new Error('Empty response from Claude');
+    }
+
+    let fields;
+    try {
+      fields = JSON.parse(text);
+    } catch (e) {
+      throw new Error('Could not parse JSON response');
+    }
+
+    progress.value = 1;
+    return { fields: normalizeFields(fields), rawText: text, source: 'claude' };
+  }
+
+  function normalizeFields(raw) {
+    const keys = ['firstName', 'lastName', 'title', 'org', 'phone', 'mobile', 'email', 'website', 'address'];
+    const out = {};
+    for (const k of keys) {
+      out[k] = typeof raw[k] === 'string' ? raw[k].trim() : '';
+    }
+    return out;
+  }
+
+  async function prepareImageForClaude(file) {
+    const bitmap = await createImageBitmap(file);
+    const longest = Math.max(bitmap.width, bitmap.height);
+    const scale = longest > MAX_IMAGE_DIM ? MAX_IMAGE_DIM / longest : 1;
+    const w = Math.round(bitmap.width * scale);
+    const h = Math.round(bitmap.height * scale);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bitmap, 0, 0, w, h);
+    bitmap.close && bitmap.close();
+
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('Could not encode image'))),
+        'image/jpeg',
+        0.85,
+      );
+    });
+
+    const buffer = await blob.arrayBuffer();
+    return { base64: arrayBufferToBase64(buffer), mediaType: 'image/jpeg' };
+  }
+
+  function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  }
+
+  function initSettings() {
+    const stored = getApiKey();
+    if (stored) {
+      apiKeyInput.value = stored;
+    }
+    updateModeIndicator();
+  }
+
+  function getApiKey() {
+    try {
+      return localStorage.getItem(API_KEY_STORAGE) || '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function handleSaveKey() {
+    const value = apiKeyInput.value.trim();
+    if (!value) {
+      setKeyStatus('Enter a key first.', 'err');
+      return;
+    }
+    if (!/^sk-ant-/.test(value)) {
+      setKeyStatus('That does not look like an Anthropic key (expected sk-ant-...).', 'err');
+      return;
+    }
+    try {
+      localStorage.setItem(API_KEY_STORAGE, value);
+      setKeyStatus('Saved. AI mode is on.', 'ok');
+      updateModeIndicator();
+    } catch (e) {
+      setKeyStatus('Could not save key: ' + e.message, 'err');
+    }
+  }
+
+  function handleClearKey() {
+    try {
+      localStorage.removeItem(API_KEY_STORAGE);
+    } catch (_) { /* ignore */ }
+    apiKeyInput.value = '';
+    setKeyStatus('Cleared. Falling back to on-device OCR.', 'ok');
+    updateModeIndicator();
+  }
+
+  function setKeyStatus(message, kind) {
+    keyStatus.textContent = message;
+    keyStatus.classList.remove('ok', 'err');
+    if (kind) keyStatus.classList.add(kind);
+  }
+
+  function updateModeIndicator() {
+    const aiOn = !!getApiKey();
+    modeIndicator.textContent = aiOn ? 'Mode: AI (Claude)' : 'Mode: on-device OCR';
+    modeIndicator.classList.toggle('ai-on', aiOn);
+    if (footerPrivacy) {
+      footerPrivacy.textContent = aiOn
+        ? 'AI mode: images are sent to the Anthropic API for extraction.'
+        : 'OCR runs in your browser. No images leave your phone.';
     }
   }
 

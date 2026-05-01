@@ -24,6 +24,33 @@
       <input id="card-input" type="file" accept="image/*" capture="environment" />
       <button id="upload-button" type="button" class="link-button">Or choose from library</button>
       <input id="library-input" type="file" accept="image/*" />
+      <p class="mode-indicator" id="mode-indicator">Mode: on-device OCR</p>
+    </section>
+
+    <section id="settings-section" class="card">
+      <details>
+        <summary>AI settings</summary>
+        <div class="ai-settings">
+          <p class="hint">
+            Add an Anthropic API key for AI-powered extraction. With a key, the app uses Claude
+            to read the card &mdash; better on stylized fonts, logos, and color backgrounds.
+            Without a key, it uses on-device OCR.
+          </p>
+          <label>
+            <span>Anthropic API key</span>
+            <input id="api-key-input" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" />
+          </label>
+          <p class="hint subtle">
+            Stored in this browser only (localStorage). Get a key at
+            <a href="https://console.anthropic.com/" target="_blank" rel="noopener noreferrer">console.anthropic.com</a>.
+          </p>
+          <div class="settings-actions">
+            <button id="save-key-button" type="button" class="primary-button">Save key</button>
+            <button id="clear-key-button" type="button" class="secondary-button">Clear key</button>
+          </div>
+          <p class="status-hint" id="key-status" role="status" aria-live="polite"></p>
+        </div>
+      </details>
     </section>
 
     <section id="preview-section" class="card hidden">
@@ -89,7 +116,7 @@
   </main>
 
   <footer>
-    <small>OCR runs in your browser. No images leave your phone.</small>
+    <small id="footer-privacy">OCR runs in your browser. No images leave your phone.</small>
   </footer>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>

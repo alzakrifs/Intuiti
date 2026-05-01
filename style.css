@@ -241,6 +241,101 @@ progress::-moz-progress-bar {
   width: 100%;
 }
 
+.mode-indicator {
+  margin: 14px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.mode-indicator.ai-on {
+  color: var(--accent);
+}
+
+#settings-section summary {
+  cursor: pointer;
+  font-weight: 600;
+  list-style: none;
+  user-select: none;
+}
+
+#settings-section summary::before {
+  content: "\25B8";
+  display: inline-block;
+  margin-right: 8px;
+  transition: transform 0.15s ease;
+}
+
+#settings-section details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.ai-settings {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ai-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.ai-settings input[type="password"] {
+  background: var(--card-2);
+  color: var(--text);
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 1rem;
+  font-family: inherit;
+  width: 100%;
+}
+
+.ai-settings input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25);
+}
+
+.ai-settings .hint a {
+  color: var(--accent);
+}
+
+.hint.subtle {
+  font-size: 0.78rem;
+  margin: -4px 0 0;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.settings-actions button {
+  flex: 1;
+}
+
+.status-hint {
+  margin: 4px 0 0;
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.status-hint.ok {
+  color: #4ade80;
+}
+
+.status-hint.err {
+  color: var(--danger);
+}
+
 footer {
   text-align: center;
   color: var(--muted);
