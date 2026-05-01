@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Card Scanner</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Card Scanner</h1>
+    <p class="tagline">Snap a business card, save the contact.</p>
+  </header>
+
+  <main>
+    <section id="capture-section" class="card">
+      <label for="card-input" class="capture-button">
+        <span class="capture-icon" aria-hidden="true">&#128247;</span>
+        <span class="capture-label">Take a picture</span>
+        <span class="capture-hint">Tap to open camera</span>
+      </label>
+      <input id="card-input" type="file" accept="image/*" capture="environment" />
+      <button id="upload-button" type="button" class="link-button">Or choose from library</button>
+      <input id="library-input" type="file" accept="image/*" />
+    </section>
+
+    <section id="preview-section" class="card hidden">
+      <div class="preview-wrap">
+        <img id="preview" alt="Captured business card" />
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite"></div>
+      <progress id="progress" value="0" max="1"></progress>
+      <button id="retake-button" type="button" class="secondary-button">Retake</button>
+    </section>
+
+    <section id="form-section" class="card hidden">
+      <h2>Review contact</h2>
+      <p class="hint">Edit anything that looks wrong, then save.</p>
+      <form id="contact-form">
+        <label>
+          <span>First name</span>
+          <input name="firstName" type="text" autocomplete="given-name" />
+        </label>
+        <label>
+          <span>Last name</span>
+          <input name="lastName" type="text" autocomplete="family-name" />
+        </label>
+        <label>
+          <span>Job title</span>
+          <input name="title" type="text" autocomplete="organization-title" />
+        </label>
+        <label>
+          <span>Company</span>
+          <input name="org" type="text" autocomplete="organization" />
+        </label>
+        <label>
+          <span>Phone</span>
+          <input name="phone" type="tel" autocomplete="tel" />
+        </label>
+        <label>
+          <span>Mobile</span>
+          <input name="mobile" type="tel" />
+        </label>
+        <label>
+          <span>Email</span>
+          <input name="email" type="email" autocomplete="email" />
+        </label>
+        <label>
+          <span>Website</span>
+          <input name="website" type="url" autocomplete="url" />
+        </label>
+        <label>
+          <span>Address</span>
+          <textarea name="address" rows="2" autocomplete="street-address"></textarea>
+        </label>
+        <label>
+          <span>Notes (raw scan)</span>
+          <textarea name="notes" rows="4"></textarea>
+        </label>
+
+        <div class="actions">
+          <button id="save-button" type="submit" class="primary-button">Save contact</button>
+          <button id="reset-button" type="button" class="secondary-button">Scan another</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <footer>
+    <small>OCR runs in your browser. No images leave your phone.</small>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

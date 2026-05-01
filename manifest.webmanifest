@@ -1,0 +1,19 @@
+{
+  "name": "Card Scanner",
+  "short_name": "CardScan",
+  "description": "Scan business cards and save contacts.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgcng9Ijg4IiBmaWxsPSIjMGYxNzJhIi8+PHJlY3QgeD0iNjQiIHk9IjEzNiIgd2lkdGg9IjM4NCIgaGVpZ2h0PSIyNDAiIHJ4PSIyNCIgZmlsbD0iIzFlMjkzYiIgc3Ryb2tlPSIjMzhiZGY4IiBzdHJva2Utd2lkdGg9IjgiLz48Y2lyY2xlIGN4PSIxNDQiIGN5PSIyMjQiIHI9IjMyIiBmaWxsPSIjMzhiZGY4Ii8+PHJlY3QgeD0iMjAwIiB5PSIyMDAiIHdpZHRoPSIyMDAiIGhlaWdodD0iMTYiIHJ4PSI4IiBmaWxsPSIjY2JkNWUxIi8+PHJlY3QgeD0iMjAwIiB5PSIyMzIiIHdpZHRoPSIxNjAiIGhlaWdodD0iMTIiIHJ4PSI2IiBmaWxsPSIjOTRhM2I4Ii8+PHJlY3QgeD0iMjAwIiB5PSIyNTYiIHdpZHRoPSIxMjAiIGhlaWdodD0iMTIiIHJ4PSI2IiBmaWxsPSIjOTRhM2I4Ii8+PC9zdmc+",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
