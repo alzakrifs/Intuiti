@@ -290,9 +290,11 @@ private fun CaptureScreen(
 
         Text(
             text = if (aiEnabled) {
-                "AI mode is on. Images are sent to the Anthropic API for extraction."
+                "AI mode is on. Images are sent to the Anthropic API for extraction. " +
+                    "Cards with Arabic names are returned in Arabic; everything else in English."
             } else {
-                "Using on-device ML Kit OCR. No images leave your phone."
+                "Using on-device ML Kit OCR. No images leave your phone. " +
+                    "Latin scripts only — Arabic cards need AI mode."
             },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,

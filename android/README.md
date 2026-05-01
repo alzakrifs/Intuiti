@@ -19,13 +19,27 @@ Built on the modern Android playbook:
 
 ## Modes
 
-| Mode      | When                                  | Engine                          | Privacy                                        |
-|-----------|---------------------------------------|---------------------------------|------------------------------------------------|
-| AI        | When an Anthropic API key is saved    | Claude (`claude-opus-4-7`) vision + JSON-schema response | Image is sent to the Anthropic API |
-| On-device | No key, or the AI call fails          | Google ML Kit + heuristic parser | Image stays on the device                      |
+| Mode      | When                                  | Engine                          | Scripts            | Privacy                                        |
+|-----------|---------------------------------------|---------------------------------|--------------------|------------------------------------------------|
+| AI        | When an Anthropic API key is saved    | Claude (`claude-opus-4-7`) vision + JSON-schema response | Latin + Arabic    | Image is sent to the Anthropic API |
+| On-device | No key, or the AI call fails          | Google ML Kit + heuristic parser | Latin only         | Image stays on the device                      |
 
 If the AI call fails (bad key, rate limit, network), the app automatically
 falls back to ML Kit for that scan and labels the result as a fallback.
+
+### Language behaviour (AI mode)
+
+- If the card includes the person's name in **Arabic script**, every text field
+  (`firstName`, `lastName`, `title`, `org`, `address`) is returned in Arabic — even
+  if the card also shows English versions.
+- For cards without any Arabic, text fields are returned in English / Latin as
+  they appear.
+- `email`, `website`, `phone`, and `mobile` are always returned exactly as
+  written, regardless of the card's language.
+
+The review form's text inputs render right-to-left automatically when the
+content is Arabic (Compose handles BiDi at the text level), so an Arabic name
+displays correctly even on an English-locale device.
 
 ## Install on your phone
 

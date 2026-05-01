@@ -76,6 +76,11 @@ class ClaudeExtractor(private val context: Context) {
             "You extract structured contact information from photos of business cards. " +
                 "Return only fields visible on the card. Use empty strings for missing fields. " +
                 "Preserve phone numbers in their original format. " +
+                "Language rule: if the card includes the person's name in Arabic script, return " +
+                "every text field (firstName, lastName, title, org, address) in Arabic script even " +
+                "if the card also shows English versions of those fields. For cards without any " +
+                "Arabic, return text fields in English/Latin as they appear on the card. Email, " +
+                "website, phone, and mobile are always returned exactly as written. " +
                 "For 'phone', use the main work or office number; for 'mobile', use a number labeled cell or mobile. " +
                 "Combine multi-line addresses into one comma-separated string.",
         )
