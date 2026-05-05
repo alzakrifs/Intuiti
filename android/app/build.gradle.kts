@@ -73,7 +73,7 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.exifinterface)
 
-    implementation(libs.mlkit.text.recognition)
+    implementation(libs.tesseract4android)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.coil.compose)

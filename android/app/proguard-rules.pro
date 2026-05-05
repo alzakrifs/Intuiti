@@ -10,6 +10,12 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
-# ML Kit text recognition models are loaded via reflection.
--keep class com.google.mlkit.** { *; }
+# Tesseract4Android — JNI-loaded native engine.
+-keep class com.googlecode.tesseract.android.** { *; }
+-keep class com.googlecode.leptonica.android.** { *; }
+
+# Google AI Edge SDK (AICore) — kept as wildcard so a future bundled SDK survives
+# minification without needing a release-build edit.
+-dontwarn com.google.ai.edge.aicore.**
+-keep class com.google.ai.edge.aicore.** { *; }
 -keep class com.google.android.gms.** { *; }

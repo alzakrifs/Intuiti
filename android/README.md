@@ -17,15 +17,54 @@ Built on the modern Android playbook:
 - `ContactsContract.Intents.Insert` to hand off to the system Contacts editor —
   the app never writes to the contacts provider directly
 
-## Modes
+## Engines
 
-| Mode      | When                                  | Engine                          | Scripts            | Privacy                                        |
-|-----------|---------------------------------------|---------------------------------|--------------------|------------------------------------------------|
-| AI        | When an Anthropic API key is saved    | Claude (`claude-opus-4-7`) vision + JSON-schema response | Latin + Arabic    | Image is sent to the Anthropic API |
-| On-device | No key, or the AI call fails          | Google ML Kit + heuristic parser | Latin only         | Image stays on the device                      |
+The app supports three extraction engines and lets you pick which one runs (or
+let the app pick automatically). Settings → **Extraction engine**:
 
-If the AI call fails (bad key, rate limit, network), the app automatically
-falls back to ML Kit for that scan and labels the result as a fallback.
+| Engine         | Where it runs    | Scripts          | Notes                                                                 |
+|----------------|------------------|------------------|-----------------------------------------------------------------------|
+| **Tesseract**  | On device        | English + Arabic | Tesseract 4 LSTM. Language packs (~10 MB) downloaded on first scan.   |
+| **AICore**     | On device        | (see below)      | Gemini Nano via Google AICore. Restricted to recent Pixel/Samsung + Android 14. The SDK is checked at app launch and the option is disabled with an explanation when unavailable. |
+| **Claude**     | Anthropic cloud  | Anything Claude reads | `claude-opus-4-7`. Most accurate, especially on stylized cards and bilingual layouts. Requires an Anthropic API key (entered in Settings). |
+
+The default is **Auto**, which uses AICore where available and falls back to
+Tesseract everywhere else. You can pin a specific engine in Settings.
+
+If the selected AI engine (Claude or AICore) fails for any reason — bad key,
+rate limit, network, model error — the app automatically retries on Tesseract
+and labels the result as a fallback, with the actual error shown in a banner
+above the form.
+
+> **About AICore today.** AICore + Gemini Nano with vision is in restricted
+> release. The Google AI Edge SDK isn't yet a public Maven artifact, so it is
+> not bundled in this build. The launch-time availability check uses
+> reflection — it'll detect the SDK if you side-load it, otherwise the option
+> stays disabled with a clear "SDK not bundled" message. Once the SDK is
+> publicly available, swap the reflective probe in
+> `data/AICoreExtractor.kt` for the real `GenerativeModel` call.
+
+### Language behaviour (Claude)
+
+- If the card includes the person's name in **Arabic script**, every text
+  field (`firstName`, `lastName`, `title`, `org`, `address`) is returned in
+  Arabic — even if the card also shows English versions.
+- For cards without any Arabic, text fields are returned in English / Latin as
+  they appear.
+- `email`, `website`, `phone`, and `mobile` are always returned exactly as
+  written.
+
+The review form's text inputs render right-to-left automatically when the
+content is Arabic (Compose handles BiDi at the text level), so an Arabic name
+displays correctly even on an English-locale device.
+
+### Language behaviour (Tesseract)
+
+Tesseract is initialised with both English and Arabic language packs
+(`eng+ara`), so OCR works on either script. The on-device heuristic parser
+treats Arabic-heavy text differently from Latin text — Arabic field detection
+is intentionally minimal (just name + universal fields like email/phone/URL),
+so you'll typically need to fix titles/companies in the review form.
 
 ### Language behaviour (AI mode)
 

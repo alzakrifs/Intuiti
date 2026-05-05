@@ -38,7 +38,9 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -74,20 +76,44 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.intuiti.cardscanner.R
+import com.intuiti.cardscanner.data.AICoreExtractor
 import com.intuiti.cardscanner.data.ContactFields
+import com.intuiti.cardscanner.data.EnginePreference
 import com.intuiti.cardscanner.data.ExtractionSource
 import com.intuiti.cardscanner.util.ContactIntent
 import kotlinx.coroutines.launch
 import java.io.File
 
+private enum class ActiveEngine(val label: String) {
+    Tesseract("On-device OCR (Tesseract)"),
+    AICore("On-device AI (AICore)"),
+    Claude("Cloud AI (Claude)"),
+}
+
+private fun activeEngine(
+    preference: EnginePreference,
+    apiKey: String,
+    aiCoreAvailable: Boolean,
+): ActiveEngine = when (preference) {
+    EnginePreference.Tesseract -> ActiveEngine.Tesseract
+    EnginePreference.AICore -> if (aiCoreAvailable) ActiveEngine.AICore else ActiveEngine.Tesseract
+    EnginePreference.Claude -> if (apiKey.isNotBlank()) ActiveEngine.Claude else ActiveEngine.Tesseract
+    EnginePreference.Auto -> if (aiCoreAvailable) ActiveEngine.AICore else ActiveEngine.Tesseract
+}
+
 @Composable
 fun CardScannerApp(viewModel: ScannerViewModel = viewModel(factory = ScannerViewModel.Factory)) {
     val phase by viewModel.phase.collectAsStateWithLifecycle()
     val apiKey by viewModel.apiKey.collectAsStateWithLifecycle()
+    val preference by viewModel.enginePreference.collectAsStateWithLifecycle()
+    val aiCoreAvailability by viewModel.aiCoreAvailability.collectAsStateWithLifecycle()
+    val aiCoreOk = aiCoreAvailability is AICoreExtractor.Availability.AvailableTextOnly
+    val active = activeEngine(preference, apiKey, aiCoreOk)
     var showSettings by rememberSaveable { mutableStateOf(false) }
 
     ScannerScaffold(
-        aiEnabled = apiKey.isNotBlank(),
+        engineLabel = active.label,
+        engineHighlighted = active != ActiveEngine.Tesseract,
         onOpenSettings = {
             viewModel.loadSettings()
             showSettings = true
@@ -95,7 +121,7 @@ fun CardScannerApp(viewModel: ScannerViewModel = viewModel(factory = ScannerView
     ) { snackbarHost ->
         when (val current = phase) {
             ScanPhase.Idle -> CaptureScreen(
-                aiEnabled = apiKey.isNotBlank(),
+                active = active,
                 onImageSelected = viewModel::onImageCaptured,
                 snackbar = snackbarHost,
             )
@@ -120,7 +146,8 @@ fun CardScannerApp(viewModel: ScannerViewModel = viewModel(factory = ScannerView
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ScannerScaffold(
-    aiEnabled: Boolean,
+    engineLabel: String,
+    engineHighlighted: Boolean,
     onOpenSettings: () -> Unit,
     content: @Composable (SnackbarHostState) -> Unit,
 ) {
@@ -135,10 +162,9 @@ private fun ScannerScaffold(
                             style = MaterialTheme.typography.titleLarge,
                         )
                         Text(
-                            text = if (aiEnabled) stringRes(R.string.mode_ai)
-                            else stringRes(R.string.mode_ocr),
+                            text = engineLabel,
                             style = MaterialTheme.typography.labelMedium,
-                            color = if (aiEnabled) MaterialTheme.colorScheme.primary
+                            color = if (engineHighlighted) MaterialTheme.colorScheme.primary
                             else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -175,7 +201,7 @@ private fun ScannerScaffold(
 
 @Composable
 private fun CaptureScreen(
-    aiEnabled: Boolean,
+    active: ActiveEngine,
     onImageSelected: (Uri) -> Unit,
     snackbar: SnackbarHostState,
 ) {
@@ -289,12 +315,15 @@ private fun CaptureScreen(
         }
 
         Text(
-            text = if (aiEnabled) {
-                "AI mode is on. Images are sent to the Anthropic API for extraction. " +
-                    "Cards with Arabic names are returned in Arabic; everything else in English."
-            } else {
-                "Using on-device ML Kit OCR. No images leave your phone. " +
-                    "Latin scripts only — Arabic cards need AI mode."
+            text = when (active) {
+                ActiveEngine.Claude ->
+                    "Cloud AI mode. Image is sent to the Anthropic API. " +
+                        "Cards with Arabic names are returned in Arabic; everything else in English."
+                ActiveEngine.AICore ->
+                    "On-device AI (Gemini Nano via AICore). No image leaves your phone."
+                ActiveEngine.Tesseract ->
+                    "On-device OCR (Tesseract, English + Arabic). " +
+                        "Language packs are downloaded the first time you scan."
             },
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -384,7 +413,7 @@ private fun ReviewScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            if (state.source == ExtractionSource.MlKitFallback && !state.errorMessage.isNullOrBlank()) {
+            if (state.source == ExtractionSource.TesseractFallback && !state.errorMessage.isNullOrBlank()) {
                 FallbackErrorBanner(message = state.errorMessage)
             }
 
@@ -495,9 +524,10 @@ private fun ContactFieldsForm(
 
 @Composable
 private fun sourceLabel(source: ExtractionSource): String = when (source) {
-    ExtractionSource.Claude -> stringRes(R.string.status_done_ai)
-    ExtractionSource.MlKit -> stringRes(R.string.status_done_ocr)
-    ExtractionSource.MlKitFallback -> stringRes(R.string.status_done_fallback)
+    ExtractionSource.Claude -> "Done — extracted by Claude. Review below."
+    ExtractionSource.AICore -> "Done — extracted by on-device AI. Review below."
+    ExtractionSource.Tesseract -> "Done — on-device OCR. Review below."
+    ExtractionSource.TesseractFallback -> "Done — AI engine failed; on-device fallback. Review below."
 }
 
 @Composable
@@ -563,6 +593,7 @@ private fun SettingsSheet(viewModel: ScannerViewModel, onDismiss: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 8.dp)
                 .imePadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -572,17 +603,70 @@ private fun SettingsSheet(viewModel: ScannerViewModel, onDismiss: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = stringRes(R.string.settings_title),
-                    style = MaterialTheme.typography.titleLarge,
-                )
+                Text(text = "Settings", style = MaterialTheme.typography.titleLarge)
                 IconButton(onClick = onDismiss) {
                     Icon(Icons.Filled.Close, contentDescription = stringRes(R.string.cd_close))
                 }
             }
 
             Text(
-                text = stringRes(R.string.settings_description),
+                text = "Extraction engine",
+                style = MaterialTheme.typography.titleMedium,
+            )
+
+            EngineOption(
+                label = "Auto",
+                description = "Pick the best on-device engine: AICore if your device supports it, otherwise Tesseract.",
+                selected = state.enginePreference == EnginePreference.Auto,
+                enabled = true,
+                onSelect = { viewModel.setEnginePreference(EnginePreference.Auto) },
+            )
+
+            EngineOption(
+                label = "Tesseract",
+                description = "On-device OCR with English + Arabic language packs. ~10 MB downloaded the first time.",
+                selected = state.enginePreference == EnginePreference.Tesseract,
+                enabled = true,
+                onSelect = { viewModel.setEnginePreference(EnginePreference.Tesseract) },
+            )
+
+            val aiCoreState = state.aiCoreAvailability
+            val aiCoreOk = aiCoreState is AICoreExtractor.Availability.AvailableTextOnly
+            val aiCoreDescription = when (aiCoreState) {
+                AICoreExtractor.Availability.Unknown -> "Checking AICore availability…"
+                AICoreExtractor.Availability.AvailableTextOnly ->
+                    "On-device Gemini Nano via Google AICore. No image leaves the phone."
+                is AICoreExtractor.Availability.SdkMissing -> "AICore SDK not installed: ${aiCoreState.detail}"
+                is AICoreExtractor.Availability.UnsupportedDevice ->
+                    "Not available on this device: ${aiCoreState.detail}"
+            }
+            EngineOption(
+                label = "AICore (Gemini Nano)",
+                description = aiCoreDescription,
+                selected = state.enginePreference == EnginePreference.AICore,
+                enabled = aiCoreOk,
+                onSelect = { viewModel.setEnginePreference(EnginePreference.AICore) },
+            )
+
+            EngineOption(
+                label = "Claude (cloud AI)",
+                description = if (state.apiKey.isNotBlank())
+                    "Anthropic Claude. Image is uploaded to the API. Most accurate."
+                else
+                    "Anthropic Claude. Add an API key below to enable.",
+                selected = state.enginePreference == EnginePreference.Claude,
+                enabled = state.apiKey.isNotBlank(),
+                onSelect = { viewModel.setEnginePreference(EnginePreference.Claude) },
+            )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+            Text(
+                text = "Anthropic API key",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text = "Only needed for the Claude engine. Stored only on this device.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -595,12 +679,6 @@ private fun SettingsSheet(viewModel: ScannerViewModel, onDismiss: () -> Unit) {
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
-            )
-
-            Text(
-                text = stringRes(R.string.settings_storage_note),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -624,6 +702,53 @@ private fun SettingsSheet(viewModel: ScannerViewModel, onDismiss: () -> Unit) {
             }
 
             Spacer(Modifier.height(WindowInsets.navigationBars.asPaddingDp()))
+        }
+    }
+}
+
+@Composable
+private fun EngineOption(
+    label: String,
+    description: String,
+    selected: Boolean,
+    enabled: Boolean,
+    onSelect: () -> Unit,
+) {
+    val containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
+    else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+    else MaterialTheme.colorScheme.onSurfaceVariant
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = containerColor,
+            contentColor = contentColor,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+            disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+        ),
+        onClick = onSelect,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onSelect,
+                enabled = enabled,
+            )
+            Spacer(Modifier.height(0.dp))
+            Column(modifier = Modifier.padding(start = 4.dp)) {
+                Text(text = label, style = MaterialTheme.typography.titleSmall)
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
         }
     }
 }

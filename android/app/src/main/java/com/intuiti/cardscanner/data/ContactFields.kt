@@ -22,7 +22,13 @@ data class ContactFields(
         get() = listOf(firstName, lastName).filter { it.isNotBlank() }.joinToString(" ")
 }
 
-enum class ExtractionSource { Claude, MlKit, MlKitFallback }
+enum class ExtractionSource {
+    Claude,
+    AICore,
+    Tesseract,
+    /** AI engine (Claude or AICore) was selected, failed, and Tesseract picked up the slack. */
+    TesseractFallback,
+}
 
 data class ExtractionResult(
     val fields: ContactFields,
