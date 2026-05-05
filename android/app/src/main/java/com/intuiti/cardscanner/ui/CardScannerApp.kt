@@ -75,6 +75,7 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.intuiti.cardscanner.BuildConfig
 import com.intuiti.cardscanner.R
 import com.intuiti.cardscanner.data.AICoreExtractor
 import com.intuiti.cardscanner.data.ContactFields
@@ -700,6 +701,15 @@ private fun SettingsSheet(viewModel: ScannerViewModel, onDismiss: () -> Unit) {
                     else MaterialTheme.colorScheme.primary,
                 )
             }
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+            Text(
+                text = "Version ${BuildConfig.VERSION_NAME_BASE} · build ${BuildConfig.VERSION_CODE} · ${BuildConfig.GIT_SHA}",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center,
+            )
 
             Spacer(Modifier.height(WindowInsets.navigationBars.asPaddingDp()))
         }

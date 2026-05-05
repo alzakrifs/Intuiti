@@ -5,6 +5,45 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// Bumped by hand for each meaningful change. Treat as semver:
+//   MAJOR — breaking UX or data changes
+//   MINOR — features
+//   PATCH — bug fixes / small tweaks
+val appVersionName = "1.1.0"
+
+// Build number is derived from git so it is monotonically increasing across
+// pushes and unique per commit. Falls back to 1 outside a git checkout.
+//
+// Wrapped in providers.exec so Gradle tracks the call properly under the
+// configuration cache — running ProcessBuilder at config time is rejected.
+val gitCommitCount: Provider<Int> = providers.exec {
+    commandLine("git", "rev-list", "--count", "HEAD")
+    workingDir = rootProject.projectDir
+    isIgnoreExitValue = true
+}.standardOutput.asText.map { it.trim().toIntOrNull() ?: 1 }
+
+val gitShortSha: Provider<String> = providers.exec {
+    commandLine("git", "rev-parse", "--short=7", "HEAD")
+    workingDir = rootProject.projectDir
+    isIgnoreExitValue = true
+}.standardOutput.asText.map { it.trim().ifBlank { "dev" } }
+
+// Lets CI grab the resolved version without scraping the APK manifest:
+//   ./gradlew :app:printVersion -q
+//   →  base=1.1.0
+//      code=42
+//      sha=abc1234
+tasks.register("printVersion") {
+    val baseName = appVersionName
+    val codeProvider = gitCommitCount
+    val shaProvider = gitShortSha
+    doLast {
+        println("base=$baseName")
+        println("code=${codeProvider.get()}")
+        println("sha=${shaProvider.get()}")
+    }
+}
+
 android {
     namespace = "com.intuiti.cardscanner"
     compileSdk = 35
@@ -13,8 +52,13 @@ android {
         applicationId = "com.intuiti.cardscanner"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = gitCommitCount.get()
+        versionName = "$appVersionName+${gitShortSha.get()}"
+
+        // Make version metadata available at runtime (e.g. About line in settings).
+        buildConfigField("String", "VERSION_NAME_BASE", "\"$appVersionName\"")
+        buildConfigField("String", "GIT_SHA", "\"${gitShortSha.get()}\"")
+        buildConfigField("int", "VERSION_CODE", "${gitCommitCount.get()}")
 
         vectorDrawables {
             useSupportLibrary = true
