@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Intuiti</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0 auto;
+    padding: 16px;
+    max-width: 480px;
+    font-family: system-ui, -apple-system, sans-serif;
+    background: light-dark(#f5f5f7, #111114);
+    color: light-dark(#1a1a1e, #ececf0);
+  }
+  h1 { font-size: 1.3rem; margin: 8px 0 16px; }
+  form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
+  input, select, button {
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    font-size: 1rem;
+    border-radius: 10px;
+    border: 1px solid light-dark(#ccc, #3a3a40);
+    background: light-dark(#fff, #1c1c21);
+    color: inherit;
+  }
+  button {
+    background: #c15f3c;
+    color: #fff;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.5; }
+  .notice { color: light-dark(#8a6d00, #e6c34a); font-size: 0.9rem; }
+  .form-error { color: #d33; font-size: 0.9rem; white-space: pre-wrap; }
+  .card {
+    background: light-dark(#fff, #1c1c21);
+    border: 1px solid light-dark(#e2e2e6, #2c2c32);
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .card .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .card .name { font-weight: 600; }
+  .card .folder { font-size: 0.85rem; opacity: 0.7; margin-top: 2px; }
+  .card .err { color: #d33; font-size: 0.85rem; margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .badge {
+    font-size: 0.75rem;
+    padding: 3px 10px;
+    border-radius: 99px;
+    white-space: nowrap;
+  }
+  .badge.starting { background: light-dark(#e8e8ec, #2c2c32); animation: pulse 1.2s infinite; }
+  .badge.running { background: #1c7c3c; color: #fff; }
+  .badge.error { background: #b02a2a; color: #fff; }
+  .badge.exited { background: light-dark(#e8e8ec, #2c2c32); opacity: 0.7; }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+  a.open {
+    display: block;
+    margin-top: 10px;
+    padding: 12px;
+    text-align: center;
+    background: light-dark(#eef1ff, #23263a);
+    color: light-dark(#2b47c7, #9daeff);
+    border-radius: 10px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .empty { opacity: 0.6; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+<h1>Intuiti — Claude Code launcher</h1>
+
+<form id="start-form">
+  <input id="name" type="text" placeholder="Session name" maxlength="60" required autocomplete="off">
+  <select id="project" required></select>
+  <button id="start-btn" type="submit">Start session</button>
+  <div id="form-msg"></div>
+</form>
+
+<h1>Sessions</h1>
+<div id="sessions"><p class="empty">No sessions yet.</p></div>
+
+<script>
+const form = document.getElementById("start-form");
+const nameInput = document.getElementById("name");
+const projectSelect = document.getElementById("project");
+const startBtn = document.getElementById("start-btn");
+const formMsg = document.getElementById("form-msg");
+const sessionsEl = document.getElementById("sessions");
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+async function loadProjects() {
+  try {
+    const res = await fetch("/api/projects");
+    const { projects } = await res.json();
+    if (!projects.length) {
+      formMsg.innerHTML = '<span class="notice">Add project folders to config.json on the PC, then restart the server.</span>';
+      startBtn.disabled = true;
+      return;
+    }
+    projectSelect.innerHTML = projects
+      .map((p) => `<option value="${esc(p.path)}">${esc(p.name)}</option>`)
+      .join("");
+  } catch {
+    formMsg.innerHTML = '<span class="form-error">Could not reach the server.</span>';
+  }
+}
+
+function basename(p) {
+  const parts = p.split(/[\\/]/).filter(Boolean);
+  return parts[parts.length - 1] || p;
+}
+
+function render(sessions) {
+  if (!sessions.length) {
+    sessionsEl.innerHTML = '<p class="empty">No sessions yet.</p>';
+    return;
+  }
+  sessionsEl.innerHTML = sessions.map((s) => `
+    <div class="card">
+      <div class="top">
+        <div>
+          <div class="name">${esc(s.name)}</div>
+          <div class="folder">${esc(basename(s.projectPath))}</div>
+        </div>
+        <span class="badge ${esc(s.status)}">${esc(s.status)}</span>
+      </div>
+      ${s.error ? `<div class="err">${esc(s.error)}</div>` : ""}
+      ${s.url ? `<a class="open" href="${esc(s.url)}">Open in Claude</a>` : ""}
+    </div>`).join("");
+}
+
+async function refresh() {
+  try {
+    const res = await fetch("/api/sessions");
+    const { sessions } = await res.json();
+    render(sessions);
+  } catch { /* transient network error; next poll retries */ }
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  formMsg.textContent = "";
+  startBtn.disabled = true;
+  try {
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: nameInput.value, projectPath: projectSelect.value }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      formMsg.innerHTML = `<span class="form-error">${esc(data.error || "Failed to start.")}</span>`;
+    } else {
+      nameInput.value = "";
+      refresh();
+    }
+  } catch {
+    formMsg.innerHTML = '<span class="form-error">Could not reach the server.</span>';
+  } finally {
+    startBtn.disabled = false;
+  }
+});
+
+loadProjects();
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>
