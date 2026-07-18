@@ -49,6 +49,13 @@ The console prints the address to open from your phone, e.g. `http://192.168.1.2
 2. Enter a session name, pick a project folder, tap **Start session**.
 3. When the badge turns green (**running**), tap **Open in Claude** — the session opens on claude.ai/code and hands off to the Claude app. It also appears in the Claude app's **Code** tab.
 
+### Resuming a previous session
+
+Under **Recent sessions** the page lists the Claude Code conversations recorded on the PC for the selected folder (newest first). Tap **Resume** to relaunch one with remote control enabled — it continues where it left off. Notes:
+
+- The server starts the CLI with `--resume <id> --remote-control`; if remote control doesn't come up within 20 s it types `/remote-control` into the session as a fallback.
+- Don't resume a session that is **currently open in a terminal on the PC** — Claude Code writes both copies into the same transcript and the messages interleave. Attaching remote control to an already-open terminal session isn't possible from outside; type `/remote-control` in that terminal instead.
+
 Sessions keep running on the PC until you exit them (from the app or the PC). Keep the Intuiti server window open; closing it does not kill already-started Claude sessions, but you lose the list of links (the sessions remain reachable from the Claude app's Code tab).
 
 ## Troubleshooting

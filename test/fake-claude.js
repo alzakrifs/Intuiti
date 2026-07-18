@@ -14,6 +14,9 @@ if (args.includes("--fail")) {
 
 const nameIdx = args.indexOf("--remote-control") + 1;
 const name = args[nameIdx] || "unnamed";
+const resumeIdx = args.indexOf("--resume");
+const resumed = resumeIdx !== -1 ? args[resumeIdx + 1] : null;
+if (resumed) process.stdout.write(`Resuming session ${resumed}\r\n`);
 
 process.stdout.write("\x1b]0;Claude Code\x07");
 process.stdout.write(`\x1b[1m\x1b[35m Claude Code \x1b[0m starting "${name}"...\r\n`);

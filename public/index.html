@@ -79,6 +79,23 @@
     text-decoration: none;
   }
   .empty { opacity: 0.6; font-size: 0.9rem; }
+  .hist { display: flex; align-items: center; gap: 10px; }
+  .hist .info { flex: 1; min-width: 0; }
+  .hist .title {
+    font-size: 0.95rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .hist .when { font-size: 0.8rem; opacity: 0.6; margin-top: 2px; }
+  .hist button {
+    width: auto;
+    min-height: 40px;
+    padding: 8px 16px;
+    flex-shrink: 0;
+  }
 </style>
 </head>
 <body>
@@ -96,6 +113,11 @@
   <button id="start-btn" type="submit">Start session</button>
   <div id="form-msg"></div>
 </form>
+
+<div id="history-section" hidden>
+  <h1>Recent sessions</h1>
+  <div id="history"></div>
+</div>
 
 <h1>Sessions</h1>
 <div id="sessions"><p class="empty">No sessions yet.</p></div>
@@ -127,6 +149,67 @@ async function loadProjects() {
     formMsg.innerHTML = '<span class="form-error">Could not reach the server.</span>';
   }
 }
+
+const historySection = document.getElementById("history-section");
+const historyEl = document.getElementById("history");
+
+function relTime(iso) {
+  const mins = Math.round((Date.now() - new Date(iso)) / 60000);
+  if (mins < 60) return `${Math.max(mins, 0)} min ago`;
+  if (mins < 1440) return `${Math.round(mins / 60)} h ago`;
+  return `${Math.round(mins / 1440)} d ago`;
+}
+
+async function loadHistory() {
+  historySection.hidden = true;
+  if (!projectSelect.value) return;
+  try {
+    const res = await fetch(`/api/history?projectPath=${encodeURIComponent(projectSelect.value)}`);
+    const { sessions } = await res.json();
+    if (!sessions || !sessions.length) return;
+    historyEl.innerHTML = sessions.map((s) => `
+      <div class="card hist">
+        <div class="info">
+          <div class="title">${esc(s.title)}</div>
+          <div class="when">${esc(relTime(s.lastActiveAt))}</div>
+        </div>
+        <button type="button" data-resume="${esc(s.id)}" data-title="${esc(s.title)}">Resume</button>
+      </div>`).join("");
+    historySection.hidden = false;
+  } catch { /* section stays hidden */ }
+}
+
+historyEl.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-resume]");
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = "Starting…";
+  try {
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: btn.dataset.title,
+        projectPath: projectSelect.value,
+        resumeSessionId: btn.dataset.resume,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      formMsg.innerHTML = `<span class="form-error">${esc(data.error || "Failed to resume.")}</span>`;
+    } else {
+      refresh();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  } catch {
+    formMsg.innerHTML = '<span class="form-error">Could not reach the server.</span>';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Resume";
+  }
+});
+
+projectSelect.addEventListener("change", loadHistory);
 
 function basename(p) {
   const parts = p.split(/[\\/]/).filter(Boolean);
@@ -184,7 +267,7 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
-loadProjects();
+loadProjects().then(loadHistory);
 refresh();
 setInterval(refresh, 3000);
 </script>

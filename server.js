@@ -7,6 +7,7 @@ const path = require("node:path");
 const express = require("express");
 const pty = require("@lydell/node-pty");
 const { stripAnsi, extractSessionUrl } = require("./lib/parse-url.js");
+const { listSessions } = require("./lib/session-history.js");
 
 const CONFIG_PATH = path.join(__dirname, "config.json");
 const URL_TIMEOUT_MS = 45_000;
@@ -44,19 +45,21 @@ function loadConfig() {
 
 const config = loadConfig();
 
-function resolveClaudeCommand(sessionName) {
+function resolveClaudeCommand(sessionName, resumeSessionId) {
+  const claudeArgs = resumeSessionId ? ["--resume", resumeSessionId] : [];
+  claudeArgs.push("--remote-control", sessionName);
   if (config.claudeCmd) {
     const parts = Array.isArray(config.claudeCmd)
       ? config.claudeCmd.slice()
       : String(config.claudeCmd).split(/\s+/);
-    return { file: parts[0], args: [...parts.slice(1), "--remote-control", sessionName] };
+    return { file: parts[0], args: [...parts.slice(1), ...claudeArgs] };
   }
   if (process.platform === "win32") {
     // The claude CLI is usually a .cmd shim, which ConPTY's CreateProcess
     // can't execute directly; cmd.exe resolves it from PATH.
-    return { file: "cmd.exe", args: ["/c", "claude", "--remote-control", sessionName] };
+    return { file: "cmd.exe", args: ["/c", "claude", ...claudeArgs] };
   }
-  return { file: "claude", args: ["--remote-control", sessionName] };
+  return { file: "claude", args: claudeArgs };
 }
 
 // id -> { id, name, projectPath, status, url, error, startedAt, pty, buf }
@@ -67,8 +70,8 @@ function publicSession(s) {
   return { id, name, projectPath, status, url, error, startedAt };
 }
 
-function startSession(name, projectPath) {
-  const { file, args } = resolveClaudeCommand(name);
+function startSession(name, projectPath, resumeSessionId = null) {
+  const { file, args } = resolveClaudeCommand(name, resumeSessionId);
   const proc = pty.spawn(file, args, {
     name: "xterm-color",
     cols: 200, // wide enough that the TUI never wraps the session URL
@@ -89,6 +92,18 @@ function startSession(name, projectPath) {
     buf: "",
   };
   sessions.set(session.id, session);
+
+  // --resume combined with --remote-control is not explicitly documented, so
+  // if the resumed session is up but remote control didn't kick in, fall back
+  // to the documented in-session method: type /remote-control into the pty.
+  let fallbackTimer = null;
+  if (resumeSessionId) {
+    fallbackTimer = setTimeout(() => {
+      if (session.status !== "starting") return;
+      console.log(`[${session.name}] no URL yet; sending /remote-control to the session`);
+      proc.write("/remote-control\r");
+    }, 20_000);
+  }
 
   const timer = setTimeout(() => {
     if (session.status !== "starting") return;
@@ -111,12 +126,14 @@ function startSession(name, projectPath) {
       session.status = "running";
       session.url = url;
       clearTimeout(timer);
+      clearTimeout(fallbackTimer);
       console.log(`[${session.name}] running: ${url}`);
     }
   });
 
   proc.onExit(({ exitCode }) => {
     clearTimeout(timer);
+    clearTimeout(fallbackTimer);
     if (session.status === "starting") {
       session.status = "error";
       const tail = outputTail(session);
@@ -151,6 +168,16 @@ app.get("/api/projects", (req, res) => {
   });
 });
 
+// Recent (resumable) Claude Code sessions recorded on disk for a project.
+app.get("/api/history", (req, res) => {
+  const projectPath = req.query.projectPath;
+  if (!config.projects.includes(projectPath)) {
+    return res.status(400).json({ error: "Unknown project folder." });
+  }
+  const claudeDir = path.join(os.homedir(), ".claude");
+  res.json({ sessions: listSessions(projectPath, claudeDir).slice(0, 20) });
+});
+
 app.get("/api/sessions", (req, res) => {
   const list = [...sessions.values()]
     .sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1))
@@ -158,11 +185,21 @@ app.get("/api/sessions", (req, res) => {
   res.json({ sessions: list });
 });
 
-app.post("/api/sessions", (req, res) => {
-  const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
-  const projectPath = req.body?.projectPath;
+const RESUME_ID_RE = /^[0-9a-fA-F-]{32,40}$/;
 
-  if (!NAME_RE.test(name)) {
+app.post("/api/sessions", (req, res) => {
+  let name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+  const projectPath = req.body?.projectPath;
+  const resumeSessionId = req.body?.resumeSessionId ?? null;
+
+  if (resumeSessionId !== null && !RESUME_ID_RE.test(resumeSessionId)) {
+    return res.status(400).json({ error: "Invalid session id." });
+  }
+  if (resumeSessionId) {
+    // Resumed sessions get their name from the transcript title, which may
+    // contain characters the strict charset disallows — sanitize instead.
+    name = name.replace(/[^\w\s.,()'-]/g, "").trim().slice(0, 60) || "Resumed session";
+  } else if (!NAME_RE.test(name)) {
     return res.status(400).json({
       error: "Session name must be 1-60 characters: letters, digits, spaces, . , ( ) ' -",
     });
@@ -178,7 +215,7 @@ app.post("/api/sessions", (req, res) => {
 
   let session;
   try {
-    session = startSession(name, projectPath);
+    session = startSession(name, projectPath, resumeSessionId);
   } catch (err) {
     return res.status(500).json({ error: `Failed to start claude: ${err.message}` });
   }
