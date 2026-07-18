@@ -74,6 +74,38 @@ test("listSessions reads sessions from an encoded project dir", () => {
   fs.rmSync(tmp, { recursive: true, force: true });
 });
 
+test("listSessions titles a session from a summary in another file", () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "intuiti-test-"));
+  const projectPath = "/home/user/demo";
+  const dir = path.join(tmp, "projects", encodeProjectDir(projectPath));
+  fs.mkdirSync(dir, { recursive: true });
+
+  const leaf = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const oldId = "11111111-1111-1111-1111-111111111111";
+  const newId = "22222222-2222-2222-2222-222222222222";
+  // Older session: plain messages, its last entry has uuid = leaf.
+  fs.writeFileSync(
+    path.join(dir, `${oldId}.jsonl`),
+    [
+      JSON.stringify({ type: "user", uuid: "00000000-0000-0000-0000-000000000001", message: { content: "raw first words of the chat" } }),
+      JSON.stringify({ type: "assistant", uuid: leaf, message: { content: [] } }),
+    ].join("\n") + "\n"
+  );
+  // Newer session: carries the generated title for the older chain.
+  fs.writeFileSync(
+    path.join(dir, `${newId}.jsonl`),
+    [
+      JSON.stringify({ type: "summary", summary: "Building the demo app", leafUuid: leaf }),
+      JSON.stringify({ type: "user", uuid: "00000000-0000-0000-0000-000000000002", message: { content: "continue please" } }),
+    ].join("\n") + "\n"
+  );
+
+  const byId = Object.fromEntries(listSessions(projectPath, tmp).map((s) => [s.id, s.title]));
+  assert.strictEqual(byId[oldId], "Building the demo app");
+  assert.strictEqual(byId[newId], "Building the demo app"); // via its own head summary
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
+
 test("listSessions returns empty for unknown project dir", () => {
   assert.deepStrictEqual(listSessions("/nope/nothing", "/nonexistent-claude-dir"), []);
 });
