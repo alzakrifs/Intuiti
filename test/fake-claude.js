@@ -7,6 +7,16 @@
 
 const args = process.argv.slice(2);
 
+if (args.includes("-p")) {
+  // Headless title-generation mode: consume stdin, print a title, exit.
+  process.stdin.resume();
+  process.stdin.on("end", () => {
+    console.log("Generated Test Title");
+    process.exit(0);
+  });
+  return;
+}
+
 if (args.includes("--fail")) {
   process.stdout.write("\x1b[31mPlease log in: run /login in claude\x1b[0m\n");
   process.exit(1);

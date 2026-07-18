@@ -1,5 +1,6 @@
 "use strict";
 
+const { spawn } = require("node:child_process");
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -168,6 +169,72 @@ app.get("/api/projects", (req, res) => {
   });
 });
 
+// ---- Generated session titles ----
+// The CLI doesn't always write summary titles to disk. For untitled sessions
+// we ask `claude -p` (haiku) for a short title, cached on disk so each
+// session is titled at most once.
+const TITLE_CACHE_PATH = path.join(__dirname, ".title-cache.json");
+const TITLE_PROMPT =
+  "Reply with ONLY a short 4-8 word title (no quotes, no trailing punctuation) " +
+  "describing the coding conversation whose first message follows.";
+
+let titleCache = {};
+try {
+  titleCache = JSON.parse(fs.readFileSync(TITLE_CACHE_PATH, "utf8"));
+} catch {
+  /* no cache yet */
+}
+const titleJobs = new Set(); // in flight
+const titleFailed = new Set(); // don't retry within this server run
+
+function titleCommand() {
+  const claudeArgs = ["-p", TITLE_PROMPT, "--model", "haiku"];
+  if (config.claudeCmd) {
+    const parts = Array.isArray(config.claudeCmd)
+      ? config.claudeCmd.slice()
+      : String(config.claudeCmd).split(/\s+/);
+    return { file: parts[0], args: [...parts.slice(1), ...claudeArgs] };
+  }
+  if (process.platform === "win32") {
+    return { file: "cmd.exe", args: ["/c", "claude", ...claudeArgs] };
+  }
+  return { file: "claude", args: claudeArgs };
+}
+
+function generateTitle(sessionId, excerpt) {
+  if (titleJobs.has(sessionId) || titleFailed.has(sessionId)) return;
+  titleJobs.add(sessionId);
+  const { file, args } = titleCommand();
+  const child = spawn(file, args, { windowsHide: true });
+  let out = "";
+  const kill = setTimeout(() => child.kill(), 60_000);
+  child.stdout.on("data", (d) => (out += d));
+  child.stderr.on("data", () => {});
+  child.on("error", () => {
+    clearTimeout(kill);
+    titleJobs.delete(sessionId);
+    titleFailed.add(sessionId);
+  });
+  child.on("close", (code) => {
+    clearTimeout(kill);
+    titleJobs.delete(sessionId);
+    const title = out.trim().split("\n").pop()?.trim().replace(/^["']|["']$/g, "");
+    if (code === 0 && title && title.length <= 80) {
+      titleCache[sessionId] = title;
+      try {
+        fs.writeFileSync(TITLE_CACHE_PATH, JSON.stringify(titleCache, null, 2));
+      } catch (err) {
+        console.error(`Could not save title cache: ${err.message}`);
+      }
+      console.log(`[titles] ${sessionId.slice(0, 8)}: ${title}`);
+    } else {
+      titleFailed.add(sessionId);
+      console.error(`[titles] generation failed for ${sessionId.slice(0, 8)} (exit ${code})`);
+    }
+  });
+  child.stdin.end(excerpt);
+}
+
 // Recent (resumable) Claude Code sessions recorded on disk for a project.
 app.get("/api/history", (req, res) => {
   const projectPath = req.query.projectPath;
@@ -175,7 +242,22 @@ app.get("/api/history", (req, res) => {
     return res.status(400).json({ error: "Unknown project folder." });
   }
   const claudeDir = path.join(os.homedir(), ".claude");
-  res.json({ sessions: listSessions(projectPath, claudeDir).slice(0, 20) });
+  let started = 0;
+  const sessions = listSessions(projectPath, claudeDir)
+    .slice(0, 20)
+    .map(({ id, title, lastActiveAt, hasSummary, excerpt }) => {
+      if (hasSummary) return { id, title, lastActiveAt };
+      if (titleCache[id]) return { id, title: titleCache[id], lastActiveAt };
+      // Untitled: serve the raw text now, generate in the background
+      // (bounded per request), and let the client re-poll.
+      if (excerpt && started < 3 && !titleFailed.has(id)) {
+        started++;
+        generateTitle(id, excerpt);
+      }
+      const pending = titleJobs.has(id);
+      return { id, title, lastActiveAt, titlePending: pending };
+    });
+  res.json({ sessions });
 });
 
 app.get("/api/sessions", (req, res) => {

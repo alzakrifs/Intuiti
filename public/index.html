@@ -160,8 +160,12 @@ function relTime(iso) {
   return `${Math.round(mins / 1440)} d ago`;
 }
 
-async function loadHistory() {
-  historySection.hidden = true;
+let historyRetries = 0;
+async function loadHistory(isRetry) {
+  if (!isRetry) {
+    historySection.hidden = true;
+    historyRetries = 0;
+  }
   if (!projectSelect.value) return;
   try {
     const res = await fetch(`/api/history?projectPath=${encodeURIComponent(projectSelect.value)}`);
@@ -170,12 +174,17 @@ async function loadHistory() {
     historyEl.innerHTML = sessions.map((s) => `
       <div class="card hist">
         <div class="info">
-          <div class="title">${esc(s.title)}</div>
+          <div class="title">${esc(s.title)}${s.titlePending ? " …" : ""}</div>
           <div class="when">${esc(relTime(s.lastActiveAt))}</div>
         </div>
         <button type="button" data-resume="${esc(s.id)}" data-title="${esc(s.title)}">Resume</button>
       </div>`).join("");
     historySection.hidden = false;
+    // Titles may be generating on the server; poll a few times to pick them up.
+    if (sessions.some((s) => s.titlePending) && historyRetries < 6) {
+      historyRetries++;
+      setTimeout(() => loadHistory(true), 5000);
+    }
   } catch { /* section stays hidden */ }
 }
 

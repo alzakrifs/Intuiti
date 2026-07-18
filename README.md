@@ -53,6 +53,8 @@ The console prints the address to open from your phone, e.g. `http://192.168.1.2
 
 Under **Recent sessions** the page lists the Claude Code conversations recorded on the PC for the selected folder (newest first). Tap **Resume** to relaunch one with remote control enabled — it continues where it left off. Notes:
 
+- Session titles come from Claude Code's own generated summaries when available. When a session has none, the server generates a short title with `claude -p` (Haiku model — costs a tiny amount of usage per session, once) and caches it in `.title-cache.json`; until it's ready the raw first message is shown with "…".
+
 - The server starts the CLI with `--resume <id> --remote-control`; if remote control doesn't come up within 20 s it types `/remote-control` into the session as a fallback.
 - Don't resume a session that is **currently open in a terminal on the PC** — Claude Code writes both copies into the same transcript and the messages interleave. Attaching remote control to an already-open terminal session isn't possible from outside; type `/remote-control` in that terminal instead.
 
