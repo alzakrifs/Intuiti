@@ -142,7 +142,12 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/api/projects", (req, res) => {
   res.json({
-    projects: config.projects.map((p) => ({ name: path.basename(p), path: p })),
+    // Not path.basename: config may hold Windows paths while running on
+    // another OS (e.g. testing the setup on Linux/macOS).
+    projects: config.projects.map((p) => ({
+      name: p.split(/[\\/]/).filter(Boolean).pop() || p,
+      path: p,
+    })),
   });
 });
 

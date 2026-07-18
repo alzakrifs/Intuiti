@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Intuiti</title>
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#c15f3c">
 <style>
   :root { color-scheme: light dark; }
   * { box-sizing: border-box; }
@@ -16,6 +20,10 @@
     color: light-dark(#1a1a1e, #ececf0);
   }
   h1 { font-size: 1.3rem; margin: 8px 0 16px; }
+  header { display: flex; align-items: center; gap: 12px; margin: 8px 0 20px; }
+  header img { width: 44px; height: 44px; }
+  header h1 { margin: 0; }
+  header .sub { font-size: 0.85rem; opacity: 0.65; margin-top: 2px; }
   form { display: flex; flex-direction: column; gap: 10px; margin-bottom: 24px; }
   input, select, button {
     width: 100%;
@@ -74,7 +82,13 @@
 </style>
 </head>
 <body>
-<h1>Intuiti — Claude Code launcher</h1>
+<header>
+  <img src="/icon.svg" alt="">
+  <div>
+    <h1>Intuiti</h1>
+    <div class="sub">Claude Code launcher</div>
+  </div>
+</header>
 
 <form id="start-form">
   <input id="name" type="text" placeholder="Session name" maxlength="60" required autocomplete="off">

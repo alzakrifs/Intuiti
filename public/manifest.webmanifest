@@ -1,0 +1,13 @@
+{
+  "name": "Intuiti",
+  "short_name": "Intuiti",
+  "description": "Start Claude Code sessions on your PC from your phone",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#c15f3c",
+  "theme_color": "#c15f3c",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
